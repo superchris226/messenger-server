@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мессенджер</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .app { width: 1100px; max-width: 100%; height: 650px; background: #16213e; border-radius: 20px; display: flex; box-shadow: 0 20px 60px rgba(0,0,0,0.7); overflow: hidden; }
+        
+        .sidebar { width: 72px; background: #0f3460; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 2px solid #1a1a2e; overflow-y: auto; flex-shrink: 0; }
+        .sidebar::-webkit-scrollbar { width: 3px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #e94560; border-radius: 10px; }
+        .server-icon { width: 48px; height: 48px; background: #1a1a3e; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-size: 20px; cursor: pointer; transition: all 0.3s ease; border: 3px solid transparent; flex-shrink: 0; padding: 2px; position: relative; }
+        .server-icon.active { border-color: #e94560; border-radius: 30%; background: #2a2a5e; }
+        .server-icon:hover { border-radius: 30%; background: #2a2a5e; transform: scale(1.05); }
+        .server-icon .label { font-size: 7px; color: #aaa; text-align: center; line-height: 1.2; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .server-icon .settings-btn { position: absolute; bottom: -2px; right: -2px; background: #2a3a5a; border: 2px solid #0f3460; border-radius: 50%; width: 16px; height: 16px; font-size: 8px; display: none; align-items: center; justify-content: center; cursor: pointer; color: #aaa; }
+        .server-icon:hover .settings-btn { display: flex; }
+        .server-icon .settings-btn:hover { background: #e94560; color: white; }
+        .server-add { background: #1a1a2e; color: #aaa; font-size: 24px; border: 2px dashed #3a3a5a; }
+        .server-add:hover { background: #2a2a4e; color: white; border-color: #e94560; }
+        .profile-btn { margin-top: auto; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; border: 3px solid #e94560; flex-shrink: 0; font-size: 18px; background: #533483; transition: 0.3s; overflow: hidden; position: relative; }
+        .profile-btn:hover { transform: scale(1.1); border-color: #fff; }
+        .profile-btn .status-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #0f3460; }
+        .profile-btn .status-dot.online { background: #22c55e; }
+        
+        .channels-panel { width: 200px; background: #1a1a3e; padding: 12px 10px; border-right: 1px solid #2a2a5e; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
+        .channels-panel .server-name { color: white; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 8px; border-radius: 8px; transition: 0.2s; }
+        .channels-panel .server-name:hover { background: #2a2a5e; }
+        .channels-panel .server-name .icon { font-size: 18px; }
+        .channels-panel .server-name .name { flex: 1; font-size: 14px; }
+        .channels-panel .server-name .arrow { color: #888; font-size: 12px; }
+        .channels-panel .channel-group { margin-bottom: 6px; }
+        .channels-panel .channel-group .group-title { color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 8px; }
+        .channel-item { padding: 6px 10px; border-radius: 8px; color: #aaa; cursor: pointer; transition: 0.2s; font-size: 13px; margin-bottom: 1px; display: flex; align-items: center; gap: 6px; }
+        .channel-item:hover { background: #2a2a5e; color: white; }
+        .channel-item.active { background: #2a2a5e; color: white; }
+        .channel-item .delete-channel { color: #666; font-size: 12px; margin-left: auto; cursor: pointer; padding: 0 4px; display: none; }
+        .channel-item:hover .delete-channel { display: inline; }
+        .channel-item .delete-channel:hover { color: #ef4444; }
+        .channel-add { color: #666; font-size: 13px; padding: 6px 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; margin-top: 4px; }
+        .channel-add:hover { background: #2a2a5e; color: white; }
+        
+        .main { flex: 1; display: flex; flex-direction: column; background: #0d1b2a; min-width: 0; }
+        .header { padding: 10px 20px; background: #1b2a41; color: white; display: flex; justify-content: space-between; border-bottom: 1px solid #2a3a5a; flex-shrink: 0; align-items: center; }
+        .header .channel-title { display: flex; align-items: center; gap: 10px; }
+        .header .channel-title .name { font-size: 15px; font-weight: 600; }
+        .header .channel-title .server-info { font-size: 12px; color: #888; }
+        .messages { flex: 1; padding: 12px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+        .messages::-webkit-scrollbar { width: 5px; }
+        .messages::-webkit-scrollbar-thumb { background: #e94560; border-radius: 10px; }
+        .msg { max-width: 75%; padding: 6px 14px; border-radius: 16px; word-wrap: break-word; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .msg.other { align-self: flex-start; background: #1e2a3a; color: #eee; }
+        .msg.mine { align-self: flex-end; background: #533483; color: #fff; }
+        .msg .username { font-size: 11px; font-weight: bold; color: #e94560; display: block; margin-bottom: 2px; }
+        .msg .time { font-size: 9px; color: #666; margin-top: 3px; text-align: right; }
+        .system-msg { background: #2a2a4a; color: #aaa; padding: 3px 16px; border-radius: 30px; align-self: center; font-size: 12px; max-width: 90%; text-align: center; }
+        .input-area { display: flex; gap: 8px; padding: 8px 15px; background: #1b2a41; border-top: 1px solid #2a3a5a; flex-shrink: 0; }
+        .input-area input { flex: 1; padding: 8px 16px; border-radius: 30px; border: none; background: #0d1b2a; color: white; outline: none; font-size: 14px; }
+        .input-area input::placeholder { color: #666; }
+        .input-area button { padding: 8px 20px; border: none; border-radius: 30px; background: #e94560; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .input-area button:hover { background: #c73652; transform: scale(1.02); }
+        
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .login-box { background: #16213e; padding: 40px; border-radius: 20px; color: white; width: 350px; text-align: center; }
+        .login-box h2 { margin-bottom: 10px; color: #e94560; }
+        .login-box p { color: #888; margin-bottom: 20px; font-size: 14px; }
+        .login-box input { width: 100%; padding: 12px; border-radius: 30px; border: none; background: #0d1b2a; color: white; font-size: 16px; margin-bottom: 15px; text-align: center; }
+        .login-box button { width: 100%; padding: 12px; border: none; border-radius: 30px; background: #e94560; color: white; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        .login-box button:hover { background: #c73652; transform: scale(1.02); }
+        .connection-status { padding: 4px 12px; border-radius: 20px; font-size: 11px; }
+        .connection-status.online { background: #22c55e; color: white; }
+        .connection-status.offline { background: #ef4444; color: white; }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); display: none; justify-content: center; align-items: center; z-index: 2000; animation: fadeInModal 0.2s ease; }
+        @keyframes fadeInModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #1a1a3e; border-radius: 16px; width: 520px; max-width: 95%; padding: 28px; color: white; box-shadow: 0 20px 60px rgba(0,0,0,0.8); max-height: 90vh; overflow-y: auto; }
+        .modal .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #2a2a5e; padding-bottom: 12px; }
+        .modal .modal-header h2 { color: white; font-size: 20px; }
+        .modal .modal-header .close-modal { color: #888; cursor: pointer; font-size: 24px; transition: 0.2s; background: none; border: none; }
+        .modal .modal-header .close-modal:hover { color: white; }
+        .modal .field { margin-bottom: 14px; }
+        .modal .field label { display: block; color: #aaa; font-size: 12px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .modal .field input, .modal .field select, .modal .field textarea { width: 100%; padding: 10px 14px; border-radius: 12px; border: none; background: #0d1b2a; color: white; font-size: 14px; outline: none; }
+        .modal .field input:focus, .modal .field select:focus, .modal .field textarea:focus { border: 2px solid #e94560; padding: 8px 12px; }
+        .modal .field textarea { resize: vertical; min-height: 50px; font-family: inherit; }
+        .modal .field select option { background: #1a1a3e; }
+        .modal .icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 5px 0; }
+        .modal .icon-grid .icon-option { width: 38px; height: 38px; border-radius: 10px; background: #0d1b2a; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: 0.2s; border: 2px solid transparent; }
+        .modal .icon-grid .icon-option:hover { background: #2a2a5e; transform: scale(1.1); }
+        .modal .icon-grid .icon-option.selected { border-color: #e94560; background: #2a2a5e; }
+        .modal .modal-buttons { display: flex; gap: 10px; margin-top: 16px; }
+        .modal .modal-buttons button { flex: 1; padding: 10px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; }
+        .modal .modal-buttons .primary { background: #e94560; color: white; }
+        .modal .modal-buttons .primary:hover { background: #c73652; transform: scale(1.02); }
+        .modal .modal-buttons .secondary { background: #2a3a5a; color: white; }
+        .modal .modal-buttons .secondary:hover { background: #3a4a6a; }
+        .modal .modal-buttons .danger { background: #ef4444; color: white; }
+        .modal .modal-buttons .danger:hover { background: #dc2626; }
+        .modal .channel-list { margin: 8px 0; }
+        .modal .channel-list .channel-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0d1b2a; border-radius: 8px; margin-bottom: 4px; }
+        .modal .channel-list .channel-row .name { font-size: 14px; }
+        .modal .channel-list .channel-row .delete { color: #888; cursor: pointer; font-size: 14px; }
+        .modal .channel-list .channel-row .delete:hover { color: #ef4444; }
+        .modal .divider { border: none; border-top: 1px solid #2a2a5e; margin: 16px 0; }
+        .modal .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1a1a3e; }
+        .modal .toggle-row .toggle-info { flex: 1; }
+        .modal .toggle-row .toggle-info .title { font-size: 14px; }
+        .modal .toggle-row .toggle-info .desc { font-size: 12px; color: #888; }
+        .modal .toggle { width: 44px; height: 24px; background: #2a3a5a; border-radius: 12px; cursor: pointer; transition: 0.3s; position: relative; flex-shrink: 0; }
+        .modal .toggle.active { background: #e94560; }
+        .modal .toggle .toggle-slider { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: 0.3s; }
+        .modal .toggle.active .toggle-slider { left: 23px; }
+        .modal .status-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+        .modal .status-selector .status-option { padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: 0.2s; border: 2px solid transparent; background: #0d1b2a; color: #aaa; }
+        .modal .status-selector .status-option:hover { background: #2a2a5e; }
+        .modal .status-selector .status-option.active { border-color: #e94560; color: white; }
+        .modal .status-selector .status-option .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+        .modal .status-selector .status-option .dot.online { background: #22c55e; }
+        .modal .status-selector .status-option .dot.idle { background: #f59e0b; }
+        .modal .status-selector .status-option .dot.dnd { background: #ef4444; }
+        .modal .status-selector .status-option .dot.offline { background: #6b7280; }
+        .modal .avatar-upload { display: flex; align-items: center; gap: 16px; }
+        .modal .avatar-upload .avatar-preview { width: 80px; height: 80px; border-radius: 50%; background: #533483; display: flex; align-items: center; justify-content: center; font-size: 32px; border: 3px solid #e94560; overflow: hidden; background-size: cover; background-position: center; }
+        .modal .avatar-upload .avatar-actions { display: flex; flex-direction: column; gap: 6px; }
+        .modal .avatar-upload .avatar-actions button { padding: 6px 14px; border: none; border-radius: 10px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .modal .avatar-upload .avatar-actions .upload-btn { background: #e94560; color: white; }
+        .modal .avatar-upload .avatar-actions .upload-btn:hover { background: #c73652; }
+        .modal .avatar-upload .avatar-actions .remove-btn { background: #2a3a5a; color: #aaa; }
+        .modal .avatar-upload .avatar-actions .remove-btn:hover { background: #ef4444; color: white; }
+        
+        .settings-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #2a2a5e; flex-wrap: wrap; }
+        .settings-tabs .tab { padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; color: #888; font-size: 13px; transition: 0.2s; border: none; background: none; }
+        .settings-tabs .tab:hover { color: white; background: #2a2a5e; }
+        .settings-tabs .tab.active { color: white; background: #2a2a5e; border-bottom: 2px solid #e94560; }
+        .settings-tab-content { display: none; }
+        .settings-tab-content.active { display: block; }
+        
+        .error-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 10px 28px; border-radius: 30px; font-weight: bold; display: none; z-index: 3000; animation: slideUp 0.3s ease; font-size: 14px; max-width: 90%; text-align: center; }
+        .error-toast.error { background: #ef4444; color: white; }
+        .error-toast.success { background: #22c55e; color: white; }
+        @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .empty-state { text-align: center; color: #666; padding: 30px 20px; }
+        .empty-state .big-icon { font-size: 48px; margin-bottom: 10px; }
+        .empty-state h3 { color: #aaa; margin-bottom: 5px; }
+        .empty-state p { font-size: 14px; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- Вход -->
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+        <h2>💬 Мессенджер</h2>
+        <p>Введите имя, чтобы присоединиться</p>
+        <input type="text" id="usernameInput" placeholder="Ваше имя..." value="Пользователь">
+        <button id="loginBtn">Войти</button>
+    </div>
+</div>
+
+<!-- Настройки сервера -->
+<div class="modal-overlay" id="serverSettingsModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>⚙️ Настройки сервера</h2>
+            <button class="close-modal" id="closeServerSettings">✕</button>
+        </div>
+        <div class="settings-tabs">
+            <button class="tab active" data-tab="overview">Общие</button>
+            <button class="tab" data-tab="channels">Каналы</button>
+            <button class="tab" data-tab="danger">Опасное</button>
+        </div>
+        <div class="settings-tab-content active" id="tab-overview">
+            <div class="field">
+                <label>Название сервера</label>
+                <input type="text" id="settingsServerName" placeholder="Название">
+            </div>
+            <div class="field">
+                <label>Иконка сервера</label>
+                <div class="icon-grid" id="settingsIconGrid"></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="primary" id="saveServerSettings">💾 Сохранить</button>
+            </div>
+        </div>
+        <div class="settings-tab-content" id="tab-channels">
+            <div class="channel-list" id="settingsChannelList"></div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <input type="text" id="newChannelName" placeholder="Название канала..." style="flex:1; padding:8px 14px; border-radius:10px; border:none; background:#0d1b2a; color:white;">
+                <button class="primary" id="addChannelInSettings" style="padding:8px 16px;">➕</button>
+            </div>
+        </div>
+        <div class="settings-tab-content" id="tab-danger">
+            <p style="color: #888; margin-bottom: 12px;">⚠️ Эти действия необратимы</p>
+            <button class="danger" id="deleteServerBtn" style="width:100%; padding:12px; border:none; border-radius:12px; font-weight:bold; cursor:pointer; background:#ef4444; color:white;">🗑️ Удалить сервер</button>
+        </div>
+    </div>
+</div>
+
+<!-- Создание сервера -->
+<div class="modal-overlay" id="createServerModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>🚀 Создать сервер</h2>
+            <button class="close-modal" id="closeCreateServer">✕</button>
+        </div>
+        <p style="color: #888; margin-bottom: 16px; font-size: 14px;">Создай свой сервер с шаблонными каналами</p>
+        <div class="field">
+            <label>Название сервера</label>
+            <input type="text" id="serverNameInput" placeholder="Например: Киноманы" maxlength="20">
+        </div>
+        <div class="field">
+            <label>Иконка</label>
+            <div class="icon-grid" id="createIconGrid"></div>
+        </div>
+        <div class="modal-buttons">
+            <button class="secondary" id="cancelCreateServer">Отмена</button>
+            <button class="primary" id="createServerBtn">✨ Создать</button>
+        </div>
+    </div>
+</div>
+
+<!-- Настройки пользователя -->
+<div class="modal-overlay" id="userSettingsModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>👤 Настройки пользователя</h2>
+            <button class="close-modal" id="closeUserSettings">✕</button>
+        </div>
+        <div class="settings-tabs">
+            <button class="tab active" data-tab="profile">Профиль</button>
+            <button class="tab" data-tab="appearance">Внешний вид</button>
+            <button class="tab" data-tab="notifications">Уведомления</button>
+            <button class="tab" data-tab="about">О себе</button>
+        </div>
+        <div class="settings-tab-content active" id="tab-profile">
+            <div class="field">
+                <label>Отображаемое имя</label>
+                <input type="text" id="userDisplayName" placeholder="Ваше имя">
+            </div>
+            <div class="field">
+                <label>Аватарка</label>
+                <div class="avatar-upload">
+                    <div class="avatar-preview" id="userAvatarPreview">👤</div>
+                    <div class="avatar-actions">
+                        <button class="upload-btn" id="uploadAvatarBtn">📸 Загрузить</button>
+                        <button class="remove-btn" id="removeAvatarBtn">🗑️ Удалить</button>
+                        <input type="file" id="avatarFileInput" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+            </div>
+            <div class="field">
+                <label>Статус</label>
+                <div class="status-selector" id="statusSelector">
+                    <div class="status-option active" data-status="online"><span class="dot online"></span> Онлайн</div>
+                    <div class="status-option" data-status="idle"><span class="dot idle"></span> Не активен</div>
+                    <div class="status-option" data-status="dnd"><span class="dot dnd"></span> Не беспокоить</div>
+                    <div class="status-option" data-status="offline"><span class="dot offline"></span> Невидимка</div>
+                </div>
+            </div>
+            <div class="field">
+                <label>Пользовательский статус</label>
+                <input type="text" id="userCustomStatus" placeholder="Например: играю в CS:GO">
+            </div>
+            <div class="modal-buttons">
+                <button class="primary" id="saveUserSettings">💾 Сохранить</button>
+            </div>
+        </div>
+        <div class="settings-tab-content" id="tab-appearance">
+            <div class="field">
+                <label>Тема</label>
+                <select id="userTheme">
+                    <option value="dark">🌙 Тёмная</option>
+                    <option value="light">☀️ Светлая</option>
+                </select>
+            </div>
+            <div class="toggle-row">
+                <div class="toggle-info">
+                    <div class="title">Показывать активность</div>
+                    <div class="desc">Показывать, что вы играете или слушаете</div>
+                </div>
+                <div class="toggle active" id="showActivityToggle"><div class="toggle-slider"></div></div>
+            </div>
+            <div class="field" style="margin-top: 12px;">
+                <label>Язык интерфейса</label>
+                <select id="userLanguage">
+                    <option value="ru">🇷🇺 Русский</option>
+                    <option value="en">🇬🇧 English</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="primary" id="saveAppearanceSettings">💾 Сохранить</button>
+            </div>
+        </div>
+        <div class="settings-tab-content" id="tab-notifications">
+            <div class="toggle-row">
+                <div class="toggle-info">
+                    <div class="title">Уведомления о сообщениях</div>
+                    <div class="desc">Показывать уведомления при новых сообщениях</div>
+                </div>
+                <div class="toggle active" id="notificationsToggle"><div class="toggle-slider"></div></div>
+            </div>
+            <div class="toggle-row">
+                <div class="toggle-info">
+                    <div class="title">Звуковые уведомления</div>
+                    <div class="desc">Воспроизводить звук при новых сообщениях</div>
+                </div>
+                <div class="toggle active" id="soundToggle"><div class="toggle-slider"></div></div>
+            </div>
+            <div class="toggle-row">
+                <div class="toggle-info">
+                    <div class="title">Упоминания</div>
+                    <div class="desc">Уведомлять только когда упоминают вас</div>
+                </div>
+                <div class="toggle" id="mentionsToggle"><div class="toggle-slider"></div></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="primary" id="saveNotificationSettings">💾 Сохранить</button>
+            </div>
+        </div>
+        <div class="settings-tab-content" id="tab-about">
+            <div class="field">
+                <label>О себе</label>
+                <textarea id="userAbout" placeholder="Расскажите о себе..." rows="4"></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button class="primary" id="saveAboutSettings">💾 Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомление -->
+<div class="error-toast" id="errorToast"></div>
+
+<!-- Основное приложение -->
+<div class="app" id="app" style="display: none;">
+    <div class="sidebar" id="serverList">
+        <div class="server-icon server-add" id="addServerBtn">+</div>
+        <div class="profile-btn" id="profileBtn">
+            👤
+            <span class="status-dot online" id="profileStatusDot"></span>
+        </div>
+    </div>
+
+    <div class="channels-panel" id="channelsPanel">
+        <div class="server-name" id="serverNameDisplay">
+            <span class="icon">🏠</span>
+            <span class="name">Общий</span>
+            <span class="arrow" id="serverSettingsArrow">⚙️</span>
+        </div>
+        <div id="channelsList">
+            <div class="channel-group">
+                <div class="group-title">ТЕКСТОВЫЕ КАНАЛЫ</div>
+            </div>
+        </div>
+        <div class="channel-add" id="addChannelBtn">➕ Создать канал</div>
+    </div>
+
+    <div class="main">
+        <div class="header">
+            <div class="channel-title">
+                <span class="name" id="channelName"># Общий</span>
+                <span class="server-info" id="channelInfo"></span>
+            </div>
+            <span class="connection-status online" id="connectionStatus">🟢 Онлайн</span>
+        </div>
+        <div class="messages" id="messagesContainer">
+            <div class="empty-state">
+                <div class="big-icon">💬</div>
+                <h3>Добро пожаловать!</h3>
+                <p>Выберите сервер и канал</p>
+            </div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="msgInput" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== ПЕРЕМЕННЫЕ ==========
+    let ws;
+    let username = '';
+    let isConnected = false;
+    let currentServerId = 'general';
+    let currentChannelId = 'general_main';
+    let servers = {};
+    let selectedIcon = '📌';
+    let settingsSelectedIcon = '📌';
+    let userStatus = 'online';
+    let userAvatar = null;
+    let userSettings = {
+        displayName: '',
+        status: 'online',
+        theme: 'dark',
+        notifications: true,
+        showActivity: true,
+        language: 'ru',
+        about: '',
+        customStatus: '',
+        sound: true,
+        mentionsOnly: false
+    };
+
+    const ICONS = ['🏠', '🎮', '💻', '📚', '🎵', '🎬', '⚽', '🏀',
+                   '🚀', '🌈', '🔥', '⭐', '💎', '🎯', '🎨', '🎪',
+                   '🏰', '🏝️', '🌊', '🌺', '🌸', '🍕', '🍔', '🎂'];
+
+    // ========== DOM ==========
+    const loginOverlay = document.getElementById('loginOverlay');
+    const app = document.getElementById('app');
+    const usernameInput = document.getElementById('usernameInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const msgInput = document.getElementById('msgInput');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const serverList = document.getElementById('serverList');
+    const serverNameDisplay = document.getElementById('serverNameDisplay');
+    const channelsList = document.getElementById('channelsList');
+    const channelName = document.getElementById('channelName');
+    const channelInfo = document.getElementById('channelInfo');
+    const addServerBtn = document.getElementById('addServerBtn');
+    const addChannelBtn = document.getElementById('addChannelBtn');
+    const serverSettingsArrow = document.getElementById('serverSettingsArrow');
+    const errorToast = document.getElementById('errorToast');
+    const profileBtn = document.getElementById('profileBtn');
+    const profileStatusDot = document.getElementById('profileStatusDot');
+
+    // Модалки
+    const createServerModal = document.getElementById('createServerModal');
+    const serverNameInput = document.getElementById('serverNameInput');
+    const createIconGrid = document.getElementById('createIconGrid');
+    const createServerBtn = document.getElementById('createServerBtn');
+    const cancelCreateServer = document.getElementById('cancelCreateServer');
+    const closeCreateServer = document.getElementById('closeCreateServer');
+
+    const serverSettingsModal = document.getElementById('serverSettingsModal');
+    const settingsServerName = document.getElementById('settingsServerName');
+    const settingsIconGrid = document.getElementById('settingsIconGrid');
+    const settingsChannelList = document.getElementById('settingsChannelList');
+    const newChannelName = document.getElementById('newChannelName');
+    const addChannelInSettings = document.getElementById('addChannelInSettings');
+    const saveServerSettings = document.getElementById('saveServerSettings');
+    const deleteServerBtn = document.getElementById('deleteServerBtn');
+    const closeServerSettings = document.getElementById('closeServerSettings');
+
+    const userSettingsModal = document.getElementById('userSettingsModal');
+    const userDisplayName = document.getElementById('userDisplayName');
+    const userAvatarPreview = document.getElementById('userAvatarPreview');
+    const userCustomStatus = document.getElementById('userCustomStatus');
+    const userAbout = document.getElementById('userAbout');
+    const userTheme = document.getElementById('userTheme');
+    const userLanguage = document.getElementById('userLanguage');
+    const showActivityToggle = document.getElementById('showActivityToggle');
+    const notificationsToggle = document.getElementById('notificationsToggle');
+    const soundToggle = document.getElementById('soundToggle');
+    const mentionsToggle = document.getElementById('mentionsToggle');
+    const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
+    const removeAvatarBtn = document.getElementById('removeAvatarBtn');
+    const avatarFileInput = document.getElementById('avatarFileInput');
+    const saveUserSettingsBtn = document.getElementById('saveUserSettings');
+    const saveAppearanceSettingsBtn = document.getElementById('saveAppearanceSettings');
+    const saveNotificationSettingsBtn = document.getElementById('saveNotificationSettings');
+    const saveAboutSettingsBtn = document.getElementById('saveAboutSettings');
+    const closeUserSettings = document.getElementById('closeUserSettings');
+
+    // ========== ИНИЦИАЛИЗАЦИЯ ИКОНОК ==========
+    function initIconGrid(grid, defaultIcon = '📌', onChange) {
+        grid.innerHTML = '';
+        ICONS.forEach(icon => {
+            const div = document.createElement('div');
+            div.className = `icon-option ${icon === defaultIcon ? 'selected' : ''}`;
+            div.textContent = icon;
+            div.dataset.icon = icon;
+            div.addEventListener('click', () => {
+                grid.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+                div.classList.add('selected');
+                if (onChange) onChange(icon);
+            });
+            grid.appendChild(div);
+        });
+    }
+
+    initIconGrid(createIconGrid, '📌', (icon) => { selectedIcon = icon; });
+    initIconGrid(settingsIconGrid, '📌', (icon) => { settingsSelectedIcon = icon; });
+
+    // ========== ЛОГИН ==========
+    loginBtn.addEventListener('click', () => {
+        username = usernameInput.value.trim() || 'Аноним';
+        userSettings.displayName = username;
+        connectToServer();
+    });
+
+    usernameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginBtn.click();
+    });
+
+    // ========== ПОДКЛЮЧЕНИЕ ==========
+    function connectToServer() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = 'localhost';
+        const port = '3000';
+        const wsUrl = `${protocol}//${host}:${port}`;
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            isConnected = true;
+            loginOverlay.style.display = 'none';
+            app.style.display = 'flex';
+            connectionStatus.className = 'connection-status online';
+            connectionStatus.textContent = '🟢 Онлайн';
+            updateProfileUI();
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleServerMessage(data);
+            } catch (error) {
+                console.error('Ошибка парсинга:', error);
+            }
+        };
+
+        ws.onclose = () => {
+            isConnected = false;
+            connectionStatus.className = 'connection-status offline';
+            connectionStatus.textContent = '🔴 Офлайн';
+        };
+
+        ws.onerror = () => {
+            showError('❌ Не удалось подключиться к серверу', 'error');
+        };
+    }
+
+    // ========== ОБРАБОТКА ==========
+    function handleServerMessage(data) {
+        if (data.type === 'servers_list') {
+            servers = {};
+            data.servers.forEach(s => { servers[s.id] = s; });
+            renderServers();
+            renderChannels();
+            if (!servers[currentServerId]) {
+                switchServer('general');
+            } else {
+                const server = servers[currentServerId];
+                if (!server.channels.find(ch => ch.id === currentChannelId)) {
+                    if (server.channels.length > 0) {
+                        switchChannel(server.channels[0].id);
+                    }
+                }
+            }
+        } else if (data.type === 'history') {
+            if (data.serverId === currentServerId && data.channelId === currentChannelId) {
+                renderMessages(data.messages);
+            }
+        } else if (data.type === 'message') {
+            renderMessage(data.message);
+        } else if (data.type === 'system') {
+            renderSystemMessage(data.text);
+        } else if (data.type === 'error') {
+            showError('❌ ' + data.text, 'error');
+        }
+    }
+
+    // ========== СЕРВЕРЫ ==========
+    function renderServers() {
+        const toRemove = [];
+        serverList.querySelectorAll('.server-icon:not(.server-add):not(.profile-btn)').forEach(el => {
+            toRemove.push(el);
+        });
+        toRemove.forEach(el => el.remove());
+
+        const sortedIds = Object.keys(servers).sort((a, b) => {
+            if (servers[a].creator === 'system' && servers[b].creator !== 'system') return -1;
+            if (servers[a].creator !== 'system' && servers[b].creator === 'system') return 1;
+            return servers[a].name.localeCompare(servers[b].name);
+        });
+
+        sortedIds.forEach(id => {
+            const server = servers[id];
+            const div = document.createElement('div');
+            div.className = `server-icon ${id === currentServerId ? 'active' : ''}`;
+            div.dataset.server = id;
+            div.innerHTML = `
+                ${server.icon}
+                <span class="label">${server.name}</span>
+                ${server.creator !== 'system' && server.creator === username ? 
+                    `<span class="settings-btn" data-server="${id}">⚙️</span>` : ''}
+            `;
+            
+            div.addEventListener('click', (e) => {
+                if (e.target.classList.contains('settings-btn')) return;
+                switchServer(id);
+            });
+
+            const settingsBtn = div.querySelector('.settings-btn');
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openServerSettings(id);
+                });
+            }
+
+            serverList.insertBefore(div, addServerBtn);
+        });
+    }
+
+    function switchServer(serverId) {
+        if (!servers[serverId]) return;
+        if (serverId === currentServerId) return;
+
+        currentServerId = serverId;
+        const server = servers[serverId];
+        
+        document.querySelectorAll('.server-icon[data-server]').forEach(el => {
+            el.classList.toggle('active', el.dataset.server === serverId);
+        });
+
+        if (server.channels.length > 0) {
+            switchChannel(server.channels[0].id);
+        }
+        
+        renderChannels();
+    }
+
+    // ========== КАНАЛЫ ==========
+    function renderChannels() {
+        const server = servers[currentServerId];
+        if (!server) return;
+
+        serverNameDisplay.innerHTML = `
+            <span class="icon">${server.icon}</span>
+            <span class="name">${server.name}</span>
+            ${server.creator === 'system' || server.creator === username ? 
+                `<span class="arrow" id="serverSettingsArrow">⚙️</span>` : ''}
+        `;
+
+        const arrow = serverNameDisplay.querySelector('#serverSettingsArrow');
+        if (arrow) {
+            arrow.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openServerSettings(currentServerId);
+            });
+        }
+
+        serverNameDisplay.addEventListener('click', () => {
+            if (server.creator === 'system' || server.creator === username) {
+                openServerSettings(currentServerId);
+            }
+        });
+
+        const group = channelsList.querySelector('.channel-group');
+        const groupTitle = group.querySelector('.group-title');
+        group.innerHTML = '';
+        group.appendChild(groupTitle);
+
+        server.channels.forEach(channel => {
+            const div = document.createElement('div');
+            div.className = `channel-item ${channel.id === currentChannelId ? 'active' : ''}`;
+            div.dataset.channel = channel.id;
+            div.innerHTML = `
+                <span>${channel.name}</span>
+                ${server.creator !== 'system' && server.creator === username ? 
+                    `<span class="delete-channel" data-channel="${channel.id}">✕</span>` : ''}
+            `;
+            
+            div.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-channel')) return;
+                switchChannel(channel.id);
+            });
+
+            const deleteBtn = div.querySelector('.delete-channel');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteChannel(channel.id);
+                });
+            }
+
+            group.appendChild(div);
+        });
+    }
+
+    function switchChannel(channelId) {
+        const server = servers[currentServerId];
+        if (!server) return;
+        const channel = server.channels.find(ch => ch.id === channelId);
+        if (!channel) return;
+
+        currentChannelId = channelId;
+        
+        document.querySelectorAll('.channel-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.channel === channelId);
+        });
+
+        channelName.textContent = channel.name;
+        channelInfo.textContent = ` • ${server.name}`;
+
+        messagesContainer.innerHTML = '<div class="empty-state"><div class="big-icon">⏳</div><h3>Загрузка...</h3></div>';
+
+        if (isConnected) {
+            ws.send(JSON.stringify({
+                type: 'join_channel',
+                serverId: currentServerId,
+                channelId: channelId,
+                username: username
+            }));
+        }
+    }
+
+    function deleteChannel(channelId) {
+        const server = servers[currentServerId];
+        if (!server) return;
+        if (server.creator !== 'system' && server.creator !== username) {
+            showError('❌ Только создатель может удалять каналы!', 'error');
+            return;
+        }
+        if (server.channels.length <= 1) {
+            showError('❌ Нельзя удалить последний канал!', 'error');
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'delete_channel',
+            serverId: currentServerId,
+            channelId: channelId,
+            username: username
+        }));
+    }
+
+    // ========== НАСТРОЙКИ СЕРВЕРА ==========
+    function openServerSettings(serverId) {
+        const server = servers[serverId];
+        if (!server) return;
+        if (server.creator !== 'system' && server.creator !== username) {
+            showError('❌ Только создатель может изменять настройки сервера!', 'error');
+            return;
+        }
+
+        settingsServerName.value = server.name;
+        settingsSelectedIcon = server.icon;
+        
+        settingsIconGrid.querySelectorAll('.icon-option').forEach(el => {
+            el.classList.toggle('selected', el.dataset.icon === server.icon);
+        });
+
+        renderSettingsChannels(serverId);
+        serverSettingsModal.classList.add('open');
+        serverSettingsModal.dataset.serverId = serverId;
+    }
+
+    function renderSettingsChannels(serverId) {
+        const server = servers[serverId];
+        if (!server) return;
+        
+        settingsChannelList.innerHTML = '';
+        server.channels.forEach(channel => {
+            const row = document.createElement('div');
+            row.className = 'channel-row';
+            row.innerHTML = `
+                <span class="name">${channel.name}</span>
+                ${server.channels.length > 1 ? 
+                    `<span class="delete" data-channel="${channel.id}">✕</span>` : ''}
+            `;
+            
+            const deleteBtn = row.querySelector('.delete');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm(`Удалить канал "${channel.name}"?`)) {
+                        ws.send(JSON.stringify({
+                            type: 'delete_channel',
+                            serverId: serverId,
+                            channelId: channel.id,
+                            username: username
+                        }));
+                        renderSettingsChannels(serverId);
+                    }
+                });
+            }
+            
+            settingsChannelList.appendChild(row);
+        });
+    }
+
+    saveServerSettings.addEventListener('click', () => {
+        const serverId = serverSettingsModal.dataset.serverId;
+        const server = servers[serverId];
+        if (!server) return;
+
+        const newName = settingsServerName.value.trim();
+        if (!newName) {
+            showError('❌ Введите название сервера', 'error');
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'update_server',
+            serverId: serverId,
+            name: newName,
+            icon: settingsSelectedIcon,
+            username: username
+        }));
+
+        serverSettingsModal.classList.remove('open');
+        showError('✅ Настройки сервера обновлены!', 'success');
+    });
+
+    deleteServerBtn.addEventListener('click', () => {
+        const serverId = serverSettingsModal.dataset.serverId;
+        const server = servers[serverId];
+        if (!server) return;
+        
+        if (confirm(`⚠️ Ты уверен, что хочешь удалить сервер "${server.name}" со всеми каналами и сообщениями?`)) {
+            ws.send(JSON.stringify({
+                type: 'delete_server',
+                serverId: serverId,
+                username: username
+            }));
+            serverSettingsModal.classList.remove('open');
+        }
+    });
+
+    closeServerSettings.addEventListener('click', () => {
+        serverSettingsModal.classList.remove('open');
+    });
+
+    addChannelInSettings.addEventListener('click', () => {
+        const serverId = serverSettingsModal.dataset.serverId;
+        const name = newChannelName.value.trim();
+        if (!name) {
+            showError('❌ Введите название канала', 'error');
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'create_channel',
+            serverId: serverId,
+            channelName: name,
+            username: username
+        }));
+
+        newChannelName.value = '';
+        setTimeout(() => renderSettingsChannels(serverId), 300);
+    });
+
+    // ========== НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ ==========
+    function updateProfileUI() {
+        const displayName = userSettings.displayName || username;
+        const firstChar = displayName.charAt(0).toUpperCase();
+        
+        if (userAvatar) {
+            profileBtn.style.backgroundImage = `url(${userAvatar})`;
+            profileBtn.style.backgroundSize = 'cover';
+            profileBtn.textContent = '';
+        } else {
+            profileBtn.style.backgroundImage = '';
+            profileBtn.style.background = '#533483';
+            profileBtn.textContent = firstChar;
+        }
+        
+        profileStatusDot.className = `status-dot ${userSettings.status}`;
+    }
+
+    profileBtn.addEventListener('click', () => {
+        userDisplayName.value = userSettings.displayName || username;
+        userCustomStatus.value = userSettings.customStatus || '';
+        userAbout.value = userSettings.about || '';
+        userTheme.value = userSettings.theme || 'dark';
+        userLanguage.value = userSettings.language || 'ru';
+        
+        if (userAvatar) {
+            userAvatarPreview.style.backgroundImage = `url(${userAvatar})`;
+            userAvatarPreview.textContent = '';
+        } else {
+            userAvatarPreview.style.backgroundImage = '';
+            userAvatarPreview.style.background = '#533483';
+            userAvatarPreview.textContent = userSettings.displayName ? userSettings.displayName.charAt(0).toUpperCase() : '👤';
+        }
+        
+        document.querySelectorAll('.status-option').forEach(el => {
+            el.classList.toggle('active', el.dataset.status === userSettings.status);
+        });
+        
+        updateToggle(showActivityToggle, userSettings.showActivity !== false);
+        updateToggle(notificationsToggle, userSettings.notifications !== false);
+        updateToggle(soundToggle, userSettings.sound !== false);
+        updateToggle(mentionsToggle, userSettings.mentionsOnly || false);
+        
+        userSettingsModal.classList.add('open');
+    });
+
+    function setupToggle(element, onChange) {
+        element.addEventListener('click', () => {
+            const isActive = element.classList.toggle('active');
+            if (onChange) onChange(isActive);
+        });
+    }
+
+    function updateToggle(element, state) {
+        if (state) {
+            element.classList.add('active');
+        } else {
+            element.classList.remove('active');
+        }
+    }
+
+    setupToggle(showActivityToggle, (state) => { userSettings.showActivity = state; });
+    setupToggle(notificationsToggle, (state) => { userSettings.notifications = state; });
+    setupToggle(soundToggle, (state) => { userSettings.sound = state; });
+    setupToggle(mentionsToggle, (state) => { userSettings.mentionsOnly = state; });
+
+    document.querySelectorAll('.status-option').forEach(el => {
+        el.addEventListener('click', () => {
+            document.querySelectorAll('.status-option').forEach(e => e.classList.remove('active'));
+            el.classList.add('active');
+            userSettings.status = el.dataset.status;
+        });
+    });
+
+    uploadAvatarBtn.addEventListener('click', () => avatarFileInput.click());
+    
+    avatarFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            userAvatar = event.target.result;
+            userAvatarPreview.style.backgroundImage = `url(${userAvatar})`;
+            userAvatarPreview.textContent = '';
+            updateProfileUI();
+            showError('📸 Аватарка загружена!', 'success');
+        };
+        reader.readAsDataURL(file);
+    });
+
+    removeAvatarBtn.addEventListener('click', () => {
+        if (confirm('Удалить аватарку?')) {
+            userAvatar = null;
+            userAvatarPreview.style.backgroundImage = '';
+            userAvatarPreview.style.background = '#533483';
+            userAvatarPreview.textContent = userSettings.displayName ? userSettings.displayName.charAt(0).toUpperCase() : '👤';
+            updateProfileUI();
+            showError('🗑️ Аватарка удалена', 'success');
+        }
+    });
+
+    function saveUserSettingsToServer() {
+        const data = {
+            type: 'update_profile',
+            username: username,
+            displayName: userDisplayName.value.trim() || username,
+            status: userSettings.status,
+            avatar: userAvatar,
+            theme: userSettings.theme,
+            notifications: userSettings.notifications,
+            showActivity: userSettings.showActivity,
+            language: userSettings.language,
+            about: userAbout.value,
+            customStatus: userCustomStatus.value
+        };
+        
+        if (isConnected) {
+            ws.send(JSON.stringify(data));
+        }
+        
+        userSettings.displayName = data.displayName;
+        updateProfileUI();
+        userSettingsModal.classList.remove('open');
+        showError('✅ Настройки сохранены!', 'success');
+    }
+
+    saveUserSettingsBtn.addEventListener('click', saveUserSettingsToServer);
+    saveAppearanceSettingsBtn.addEventListener('click', saveUserSettingsToServer);
+    saveNotificationSettingsBtn.addEventListener('click', saveUserSettingsToServer);
+    saveAboutSettingsBtn.addEventListener('click', saveUserSettingsToServer);
+
+    closeUserSettings.addEventListener('click', () => {
+        userSettingsModal.classList.remove('open');
+    });
+
+    userSettingsModal.addEventListener('click', (e) => {
+        if (e.target === userSettingsModal) userSettingsModal.classList.remove('open');
+    });
+
+    // ========== СОЗДАНИЕ СЕРВЕРА ==========
+    addServerBtn.addEventListener('click', () => {
+        if (!isConnected) { showError('❌ Нет подключения к серверу', 'error'); return; }
+        serverNameInput.value = '';
+        createIconGrid.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+        createIconGrid.querySelector('.icon-option:first-child')?.classList.add('selected');
+        selectedIcon = '📌';
+        createServerModal.classList.add('open');
+    });
+
+    cancelCreateServer.addEventListener('click', () => { createServerModal.classList.remove('open'); });
+    closeCreateServer.addEventListener('click', () => { createServerModal.classList.remove('open'); });
+
+    createServerBtn.addEventListener('click', () => {
+        const name = serverNameInput.value.trim();
+        if (!name) { showError('❌ Введите название сервера', 'error'); return; }
+        
+        ws.send(JSON.stringify({
+            type: 'create_server',
+            name: name,
+            icon: selectedIcon,
+            username: username
+        }));
+        
+        createServerModal.classList.remove('open');
+        showError(`✅ Сервер "${name}" создаётся с 3 каналами!`, 'success');
+    });
+
+    // ========== СОЗДАНИЕ КАНАЛА ==========
+    addChannelBtn.addEventListener('click', () => {
+        const server = servers[currentServerId];
+        if (!server) { showError('❌ Сервер не найден', 'error'); return; }
+        if (server.creator !== 'system' && server.creator !== username) {
+            showError('❌ Только создатель сервера может создавать каналы!', 'error');
+            return;
+        }
+        
+        const name = prompt('📌 Введите название канала:');
+        if (!name || !name.trim()) return;
+        
+        ws.send(JSON.stringify({
+            type: 'create_channel',
+            serverId: currentServerId,
+            channelName: name.trim(),
+            username: username
+        }));
+    });
+
+    // ========== СООБЩЕНИЯ ==========
+    function renderMessages(messages) {
+        messagesContainer.innerHTML = '';
+        if (messages.length === 0) {
+            messagesContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="big-icon">💬</div>
+                    <h3>Нет сообщений</h3>
+                    <p>Напиши что-нибудь!</p>
+                </div>
+            `;
+            return;
+        }
+        messages.forEach(msg => renderMessage(msg));
+    }
+
+    function renderMessage(msg) {
+        const placeholder = messagesContainer.querySelector('.empty-state');
+        if (placeholder) placeholder.remove();
+
+        const div = document.createElement('div');
+        div.className = `msg ${msg.username === username ? 'mine' : 'other'}`;
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'username';
+        nameSpan.textContent = msg.username;
+        div.appendChild(nameSpan);
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = msg.text;
+        div.appendChild(textSpan);
+
+        const timeSpan = document.createElement('div');
+        timeSpan.className = 'time';
+        timeSpan.textContent = msg.time || new Date().toLocaleTimeString();
+        div.appendChild(timeSpan);
+
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function renderSystemMessage(text) {
+        const div = document.createElement('div');
+        div.className = 'system-msg';
+        div.textContent = text;
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function sendMessage() {
+        const text = msgInput.value.trim();
+        if (!text) return;
+        if (!isConnected) { showError('❌ Нет подключения к серверу', 'error'); return; }
+        
+        ws.send(JSON.stringify({
+            type: 'message',
+            username: username,
+            text: text
+        }));
+
+        msgInput.value = '';
+        msgInput.focus();
+    }
+
+    // ========== УВЕДОМЛЕНИЯ ==========
+    function showError(text, type = 'error') {
+        errorToast.textContent = text;
+        errorToast.style.display = 'block';
+        errorToast.className = 'error-toast ' + type;
+        clearTimeout(errorToast._timeout);
+        errorToast._timeout = setTimeout(() => {
+            errorToast.style.display = 'none';
+        }, 3000);
+    }
+
+    // ========== ВКЛАДКИ ==========
+    document.querySelectorAll('.settings-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.settings-tabs .tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    // ========== ЗАКРЫТИЕ МОДАЛОК ==========
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target === el) el.classList.remove('open');
+        });
+    });
+
+    // ========== ENTER ==========
+    newChannelName.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addChannelInSettings.click();
+    });
+
+    // ========== ПРИМЕНЕНИЕ ТЕМЫ ==========
+    userTheme.addEventListener('change', () => {
+        userSettings.theme = userTheme.value;
+        if (userTheme.value === 'light') {
+            app.classList.add('theme-light');
+        } else {
+            app.classList.remove('theme-light');
+        }
+    });
+
+    console.log('📱 Мессенджер загружен!');
+    console.log('💡 Всё работает: сервера, каналы, настройки профиля');
+    console.log('📎 Отправка файлов будет добавлена позже');
+</script>
+</body>
+</html>
